@@ -14,6 +14,10 @@
           <option name="url" value="https://github.com/kasim1011/OdooJsonRpcClient.git" />
           <option name="userName" value="" />
         </UrlAndUserName>
+        <UrlAndUserName>
+          <option name="url" value="https://github.com/luis-rj/OdooJsonRpcClient.git" />
+          <option name="userName" value="" />
+        </UrlAndUserName>
       </list>
     </option>
     <option name="cloneParentDir" value="C:\Users\luisr\StudioProjects" />
