@@ -1,75 +1,263 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- if self_hosted_url set to true, it allows user to manually set protocol and host URL. -->
-    <!-- if false then define your protocol and host URL below. -->
-    <bool name="self_hosted_url">true</bool>
+package io.gripxtech.odoojsonrpcclient.customer
 
-    <!-- if host URL starts with http:// then set protocol to 0. -->
-    <!-- if host URL starts with https:// then set protocol value to 1.-->
-    <integer name="protocol">0</integer>
+import android.content.res.Configuration
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.appcompat.app.ActionBarDrawerToggle
+import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.RecyclerView
+import com.google.gson.reflect.TypeToken
+import io.gripxtech.odoojsonrpcclient.*
+import io.gripxtech.odoojsonrpcclient.core.Odoo
+import io.gripxtech.odoojsonrpcclient.core.OdooDatabase
+import io.gripxtech.odoojsonrpcclient.core.utils.android.ktx.subscribeEx
+import io.gripxtech.odoojsonrpcclient.customer.entities.Customer
+import io.reactivex.Single
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.schedulers.Schedulers
+import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.fragment_customer.*
+import kotlinx.android.synthetic.main.fragment_customer.tb
+import timber.log.Timber
 
-    <!-- set your host_url without leading http:// or https:// -->
-    <string name="host_url" translatable="false">192.168.43.52:8069</string>
+class CustomerFragment : Fragment() {
 
-    <!-- if pre_config_database set to false, it allows user to manually select the database. -->
-    <!-- if true then define pre_config_database_name with database name below. -->
-    <bool name="pre_config_database">false</bool>
+    companion object {
 
-    <!-- set your database -->
-    <string name="pre_config_database_name" translatable="false">db_v11</string>
+        enum class CustomerType {
+            Customer,
+            Supplier,
+            Company
+        }
 
-    <!-- if your server is using self signed certificate for using HTTPS protocol then set self_signed_cert to true -->
-    <bool name="self_signed_cert">false</bool>
+        private const val TYPE = "type"
 
-    <!-- Compatible Odoo versions -->
-    <!-- Any other Odoo versions which are not in the array are considered as incompatible versions. -->
-    <string-array name="supported_odoo_versions">
-        <item>10</item>
-        <item>11</item>
-        <item>12</item>
-        <item>13</item>
-        <item>14</item>
-        <item>15</item>
-        <item>saas~12</item>
-    </string-array>
+        fun newInstance(customerType: CustomerType) =
+            CustomerFragment().apply {
+                arguments = Bundle().apply {
+                    putString(TYPE, customerType.name)
+                }
+            }
+    }
 
-    <!-- organization name -->
-    <string name="preference_organization_summary" translatable="false">Kasim Rangwala</string>
+    lateinit var activity: MainActivity private set
+    lateinit var glideRequests: GlideRequests private set
+    private var compositeDisposable: CompositeDisposable? = null
 
-    <!-- organization website -->
-    <string name="preference_organization_website" translatable="false">https://github.com/kasim1011/OdooJsonRpcClient</string>
+    private var customerType: CustomerType = CustomerType.Customer
+    private lateinit var drawerToggle: ActionBarDrawerToggle
 
-    <!-- organization privacy policy -->
-    <string name="preference_privacy_policy_url" translatable="false">https://github.com/kasim1011/OdooJsonRpcClient/blob/master/LICENSE</string>
+    val adapter: CustomerAdapter by lazy {
+        CustomerAdapter(this, arrayListOf())
+    }
 
-    <!-- organization email -->
-    <string name="preference_contact_summary" translatable="false">rangwalakasim@ymail.com</string>
+    private val customerListType = object : TypeToken<ArrayList<Customer>>() {}.type
+    private val limit = RECORD_LIMIT
 
-    <!-- To add a new language: -->
-    <!-- 1) Add language name & language code below -->
-    <!-- 2) Reference language name to the languages array -->
-    <!-- 3) Reference language code to the languages_codes array -->
-    <!-- 4) Add strings.xml for that language -->
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        compositeDisposable?.dispose()
+        compositeDisposable = CompositeDisposable()
 
-    <!-- language -->
-    <string name="language_spanish" translatable="false">Español (experimental)</string>
-    <string name="language_code_spanish" translatable="false">es</string>
-    <string name="language_english" translatable="false">English</string>
-    <string name="language_code_english" translatable="false">en</string>
-    <string name="language_arabic" translatable="false">العربية (تجريبية)</string>
-    <string name="language_code_arabic" translatable="false">ar</string>
+        // Inflate the layout for this fragment
+        return inflater.inflate(R.layout.fragment_customer, container, false)
+    }
 
-    <string-array name="languages">
-        <item>@string/language_system_default</item>
-        <item>@string/language_spanish</item>
-        <item>@string/language_english</item>
-        <item>@string/language_arabic</item>
-    </string-array>
+    override fun onActivityCreated(savedInstanceState: Bundle?) {
+        super.onActivityCreated(savedInstanceState)
+        activity = getActivity() as MainActivity
+        glideRequests = GlideApp.with(this)
+        arguments?.let {
+            customerType = CustomerType.valueOf(it.getString(TYPE) ?: "")
+        }
 
-    <string-array name="languages_codes">
-        <item>@string/language_code_system_default</item>
-        <item>@string/language_code_spanish</item>
-        <item>@string/language_code_english</item>
-        <item>@string/language_code_arabic</item>
-    </string-array>
-</resources>
+        // Hiding MainActivity's AppBarLayout as well as NestedScrollView first
+        activity.abl.visibility = View.GONE
+        activity.nsv.visibility = View.GONE
+
+        when (customerType) {
+            CustomerType.Supplier -> {
+                activity.nv.menu.findItem(R.id.nav_supplier).isChecked = true
+                activity.setTitle(R.string.action_supplier)
+            }
+            CustomerType.Company -> {
+                activity.nv.menu.findItem(R.id.nav_company).isChecked = true
+                activity.setTitle(R.string.action_company)
+            }
+            else -> {
+                activity.nv.menu.findItem(R.id.nav_customer).isChecked = true
+                activity.setTitle(R.string.action_customer)
+            }
+        }
+        activity.setSupportActionBar(tb)
+        val actionBar = activity.supportActionBar
+        if (actionBar != null) {
+            actionBar.setHomeButtonEnabled(true)
+            actionBar.setDisplayHomeAsUpEnabled(true)
+        }
+
+        drawerToggle = ActionBarDrawerToggle(
+            activity, activity.dl,
+            tb, R.string.navigation_drawer_open, R.string.navigation_drawer_close
+        )
+        activity.dl.addDrawerListener(drawerToggle)
+        drawerToggle.syncState()
+
+        val layoutManager = androidx.recyclerview.widget.LinearLayoutManager(
+            activity, RecyclerView.VERTICAL, false
+        )
+        rv.layoutManager = layoutManager
+        rv.addItemDecoration(
+            androidx.recyclerview.widget.DividerItemDecoration(
+                activity,
+                androidx.recyclerview.widget.LinearLayoutManager.VERTICAL
+            )
+        )
+
+        adapter.setupScrollListener(rv)
+
+        if (!adapter.hasRetryListener()) {
+            adapter.retryListener {
+                fetchCustomer()
+            }
+        }
+
+        srl.setOnRefreshListener {
+            adapter.clear()
+            if (!adapter.hasMoreListener()) {
+                adapter.showMore()
+                fetchCustomer()
+            }
+            srl.post {
+                srl.isRefreshing = false
+            }
+        }
+
+        if (adapter.rowItemCount == 0) {
+            adapter.showMore()
+            fetchCustomer()
+        }
+
+        rv.adapter = adapter
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (::drawerToggle.isInitialized) {
+            drawerToggle.onConfigurationChanged(newConfig)
+        }
+    }
+
+    override fun onDestroyView() {
+        compositeDisposable?.dispose()
+        super.onDestroyView()
+    }
+
+    private fun fetchCustomer() {
+        Odoo.searchRead(
+            "res.partner", Customer.fields,
+            when (customerType) {
+                CustomerType.Customer -> {
+                    listOf(listOf("is_company", "=", true))
+                }
+                CustomerType.Supplier -> {
+                    listOf(listOf("is_company", "=", true))
+                }
+                CustomerType.Company -> {
+                    listOf(listOf("is_company", "=", true))
+                }
+            }, adapter.rowItemCount, limit, "name ASC"
+        ) {
+
+            onSubscribe { disposable ->
+                compositeDisposable?.add(disposable)
+            }
+
+            onNext { response ->
+                if (response.isSuccessful) {
+                    val searchRead = response.body()!!
+                    if (searchRead.isSuccessful) {
+                        adapter.hideEmpty()
+                        adapter.hideError()
+                        adapter.hideMore()
+                        val items: ArrayList<Customer> = gson.fromJson(searchRead.result.records, customerListType)
+                        // insertCustomers(items)
+                        if (items.size < limit) {
+                            adapter.removeMoreListener()
+                            if (items.size == 0 && adapter.rowItemCount == 0) {
+                                adapter.showEmpty()
+                            }
+                        } else {
+                            if (!adapter.hasMoreListener()) {
+                                adapter.moreListener {
+                                    fetchCustomer()
+                                }
+                            }
+                        }
+                        adapter.addRowItems(items)
+                    } else {
+                        adapter.showError(searchRead.errorMessage)
+                        activity.promptReport(searchRead.odooError)
+                    }
+                } else {
+                    adapter.showError(response.errorBodySpanned)
+                }
+                adapter.finishedMoreLoading()
+            }
+
+            onError { error ->
+                error.printStackTrace()
+                adapter.showError(error.message ?: getString(R.string.generic_error))
+                adapter.finishedMoreLoading()
+            }
+        }
+    }
+
+    private fun insertCustomers(items: ArrayList<Customer>) {
+        Single.fromCallable<List<Long>> {
+            OdooDatabase.database?.customerDao()?.insertCustomers(items)
+        }.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribeEx {
+            onSubscribe { disposable ->
+                compositeDisposable?.add(disposable)
+            }
+
+            onSuccess { response ->
+                Timber.d("insertCustomers() > ...subscribeEx{...} > onSuccess{...} response: $response")
+                retrieveData()
+            }
+
+            onError { error ->
+                error.printStackTrace()
+                activity.showMessage(message = error.message)
+            }
+        }
+    }
+
+    private fun retrieveData() {
+        Single.fromCallable<List<Customer>> {
+            OdooDatabase.database?.customerDao()?.getCustomers()
+        }.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread()).subscribeEx {
+            onSubscribe { disposable ->
+                compositeDisposable?.add(disposable)
+            }
+
+            onSuccess { response ->
+                Timber.d("retrieveData() > ...subscribeEx{...} > onSuccess{...} response:")
+                val items = ArrayList(response)
+                for (item in items) {
+                    Timber.i("Item is $item")
+                }
+            }
+
+            onError { error ->
+                error.printStackTrace()
+                activity.showMessage(message = error.message)
+            }
+        }
+    }
+}
