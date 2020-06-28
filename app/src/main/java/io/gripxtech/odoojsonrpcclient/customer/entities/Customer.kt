@@ -44,8 +44,8 @@ data class Customer(
     var parentName: String = "false",
 
     @Expose
-    @SerializedName("image_small")
-    @ColumnInfo(name = "image_small")
+    @SerializedName("image_1920")
+    @ColumnInfo(name = "image_1920")
     var imageSmall: String = "false",
 
     @Expose
@@ -95,7 +95,7 @@ data class Customer(
         @JvmField
         val fieldsMap: Map<String, String> = mapOf(
             "id" to "id", "name" to "Name", "email" to "Email", "parent_name" to "Parent name",
-            "company_name" to "Company Name", "image_small" to "Image", "website" to "Website",
+            "company_name" to "Company Name", "image_1920" to "Image", "website" to "Website",
             "phone" to "Phone Number", "mobile" to "Mobile Number",/* "full_address" to "Full Address",*/
             "state_id" to "State", "country_id" to "Country", "comment" to "Internal Note",
             "is_company" to "Is Company"

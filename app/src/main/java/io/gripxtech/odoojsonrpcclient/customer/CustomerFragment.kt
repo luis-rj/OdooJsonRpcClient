@@ -163,10 +163,10 @@ class CustomerFragment : Fragment() {
             "res.partner", Customer.fields,
             when (customerType) {
                 CustomerType.Customer -> {
-                    listOf(listOf("customer", "=", true))
+                    listOf(listOf("is_company", "=", true))
                 }
                 CustomerType.Supplier -> {
-                    listOf(listOf("supplier", "=", true))
+                    listOf(listOf("is_company", "=", true))
                 }
                 CustomerType.Company -> {
                     listOf(listOf("is_company", "=", true))

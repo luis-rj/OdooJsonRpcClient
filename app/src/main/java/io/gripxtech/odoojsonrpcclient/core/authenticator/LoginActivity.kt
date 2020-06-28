@@ -463,7 +463,7 @@ class LoginActivity : BaseActivity() {
     private fun searchReadUserInfo(authenticateResult: AuthenticateResult) {
         Odoo.searchRead(
             model = "res.users",
-            fields = listOf("name", "image"),
+            fields = listOf("name", "image_1920"),
             domain = listOf(listOf("id", "=", authenticateResult.uid)),
             offset = 0, limit = 0, sort = "id DESC", context = authenticateResult.userContext
         ) {
@@ -477,7 +477,7 @@ class LoginActivity : BaseActivity() {
                     if (searchRead.isSuccessful) {
                         if (searchRead.result.records.size() > 0) {
                             val row = searchRead.result.records[0].asJsonObject
-                            row?.get("image")?.asString?.let {
+                            row?.get("image_1920")?.asString?.let {
                                 authenticateResult.imageSmall = it
                             }
                             row?.get("name")?.asString?.trimFalse()?.let {
